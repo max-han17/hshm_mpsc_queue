@@ -20,7 +20,7 @@
 #include <hermes_shm/util/timer.h>
 #include "test_init.h"
 
-#define PINGPONG_DEFAULT 100000
+#define PINGPONG_DEFAULT 1000000
 
 int main(int argc, char** argv) { 
     MPI_Init(&argc, &argv);
@@ -37,13 +37,15 @@ int main(int argc, char** argv) {
 
     // The allocator was initialized in test_init.c
     // we are getting the "header" of the allocator
-    auto *alloc = HSHM_DEFAULT_ALLOC;
+    // auto *alloc = HSHM_DEFAULT_ALLOC;
+    auto* alloc = HSHM_MEMORY_MANAGER->GetAllocator<HSHM_DEFAULT_ALLOC_T>(AllocatorId(1,0));
+
     if (!alloc) {
         std::cerr << "alloc  is null" << std::endl;
         MPI_Finalize();
         return -1;
     }
-    auto *queue_ = alloc->GetCustomHeader<hipc::delay_ar<sub::mpsc_ptr_queue<int>>>();
+    auto *queue_ = alloc->GetCustomHeader<hipc::delay_ar<sub::ipc::mpsc_ptr_queue<int>>>();
     if (!queue_) {
         std::cerr << "QUEUE is null!" << std::endl;
         MPI_Finalize();
@@ -57,40 +59,37 @@ int main(int argc, char** argv) {
     if (rank == RANK0) {
         // Rank 0 create the pointer queue
         queue_->shm_init(alloc, 100000);
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
         // Affine to CPU 0
         hshm::ProcessAffiner::SetCpuAffinity(HSHM_SYSTEM_INFO->pid_, 0);
     }
     MPI_Barrier(MPI_COMM_WORLD);
-
+    std::atomic_thread_fence(std::memory_order_seq_cst);
     if (rank != RANK0) {
         // Affine to CPU 1
         hshm::ProcessAffiner::SetCpuAffinity(HSHM_SYSTEM_INFO->pid_, 1);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    sub::mpsc_ptr_queue<int> *queue = queue_->get();
+    sub::ipc::mpsc_ptr_queue<int> *queue = queue_->get();
 
     std::cout << "[RANK " << rank << "] queue_: " << queue_ << "\n";
     std::cout << "[RANK " << rank << "] queue_->get(): " << queue_->get() << "\n";
 
+    MPI_Barrier(MPI_COMM_WORLD);
     //start the timer after we syncrhonize at barrier
     timer.Resume();
 
     for (int k = 0; k < pingpongs; k++) {
         if (rank == RANK0) {
-
             // Emplace values into the queue
-            for (int i = 0; i < 1; ++i) {
-                // printf("EMPLACE %d\n" , k);
-                queue->emplace(i);
-            }
+            queue->emplace(k);
         } else {
             // Pop entries from the queue
-            int x, count = 0;
-            while (!queue->pop(x).IsNull() && count < 1000) {
-                printf("POP %d\n", k);
-                // REQUIRE(x == count);
-                ++count;
+            int x;
+            while (!queue->pop(x).IsNull()) {
+                // printf("POP %d\n", k);
             }
         }
     }
