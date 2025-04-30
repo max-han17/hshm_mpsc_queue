@@ -111,8 +111,7 @@ int main(int argc, char** argv) {
         } else {
             // Pop entries from the queue
             int x;
-            !queue->pop(x).IsNull();
-            while (task->done_) {
+            while (queue->pop(x).IsNull()) {
                 continue;
             }
             task->done_ = true;
