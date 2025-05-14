@@ -20,7 +20,7 @@
 #include <hermes_shm/util/timer.h>
 #include "test_init.h"
 
-#define ITERS_DEFAULT 100
+#define ITERS_DEFAULT 1000000
 
 struct Task {
     hipc::atomic<bool> done_;
