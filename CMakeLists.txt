@@ -25,6 +25,10 @@ add_executable(mpsc_queue_bool_timed
 test_init.cc
 mpsc_queue_bool_timed.cc)
 
+add_executable(mpsc_queue_final
+test_init.cc
+mpsc_queue_final.cc)
+
 target_link_libraries(mpsc_queue_timed
   hshm::cxx
   MPI::MPI_CXX
@@ -36,6 +40,11 @@ target_link_libraries(boolean_flip_timed
 )
 
 target_link_libraries(mpsc_queue_bool_timed
+  hshm::cxx
+  MPI::MPI_CXX
+)
+
+target_link_libraries(mpsc_queue_final
   hshm::cxx
   MPI::MPI_CXX
 )
